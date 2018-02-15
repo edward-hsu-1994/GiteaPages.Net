@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using GiteaPages.Net.Models;
+using LiteDB;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Configuration;
@@ -21,7 +22,10 @@ namespace GiteaPages.Net.Controllers {
         // lock物件清除迴圈
         public static Task LockClear;
 
-        public PagesController() {
+        public LiteDatabase Database { get; private set; }
+
+        public PagesController(LiteDatabase database) {
+            this.Database = database;
             if (LockClear == null) {
                 LockClear = Task.Run(() => {
                     for (; ; ) {
@@ -39,6 +43,22 @@ namespace GiteaPages.Net.Controllers {
             }
         }
 
+        [Route("{user}/{repo}-{commit}/{*path}")]
+        [Route("{user}/{repo}-last/{*path}")]
+        public async Task<ActionResult> ChangeVersion(
+            [FromRoute] string user,
+            [FromRoute] string repo,
+            [FromRoute] string path,
+            [FromRoute] string commit) {
+            if (commit == "last") {
+                commit = "";
+            }
+
+            Response.Cookies.Append($"{user}-{repo}", commit);
+
+            return Redirect($"/{user}/{repo}/{path}");
+        }
+
         /// <summary>
         /// 取得指定使用者之儲存體目標路徑檔案內容
         /// </summary>
@@ -53,19 +73,48 @@ namespace GiteaPages.Net.Controllers {
             [FromServices]IConfiguration configuration,
             [FromRoute] string user,
             [FromRoute] string repo,
-            [FromRoute] string path,
-            [FromQuery] string commit = null) {
+            [FromRoute] string path) {
+            var repoInfos = Database.GetCollection<RepoInfo>();
+
             if (path == null) {
                 path = string.Empty;
             }
+
+            Request.Cookies.TryGetValue($"{user}-{repo}", out string commit);
+            if (string.IsNullOrWhiteSpace(commit)) {
+                commit = null;
+            }
+
             // 假設使用者沒有指定commitId，則嘗試呼叫API取得最新的commitId
             if (commit == null) {
                 commit = await GetLastCommitId(user, repo);
+
+                // 寫入資料庫
+                if (commit != null) {
+                    var inDbRecord = repoInfos.FindOne(x => x.User == user && x.Repo == repo);
+                    if (inDbRecord == null) {
+                        inDbRecord = new RepoInfo() {
+                            User = user,
+                            Repo = repo,
+                            LastCommitId = commit
+                        };
+                        repoInfos.Insert(inDbRecord);
+                    } else {
+                        inDbRecord.LastCommitId = commit;
+                        repoInfos.Update(inDbRecord);
+                    }
+                }
             }
             // 假設前者API請求成功則commitId則不應該為null，如為null則表示該repo不存在或無法存取
             // 將commitId設為cache內最新的項目
             if (commit == null) {
-                return await NotFound();// 等待改版
+                var lastCommintInfo = repoInfos.FindOne(x => x.User == user && x.Repo == repo);
+
+                if (lastCommintInfo == null) {
+                    return await NotFound();
+                } else {
+                    commit = lastCommintInfo.LastCommitId;
+                }
             }
 
             var cacheDir = GetRepoCacheDirPath(configuration["cacheDir"], user, repo, commit);
@@ -117,7 +166,7 @@ namespace GiteaPages.Net.Controllers {
             var fileStream =
                 System.IO.File.Open(
                     fullPath,
-                    FileMode.Open,
+                    System.IO.FileMode.Open,
                     FileAccess.Read,
                     FileShare.ReadWrite);
 
@@ -161,18 +210,6 @@ namespace GiteaPages.Net.Controllers {
         [NonAction]
         public string GetRepoCacheDirPath(string cacheDir, string user, string repo, string commitId) {
             return Path.Combine(cacheDir, user, repo, commitId);
-            /*
-            lock (DownloadLocker) {
-                string[] paths = new string[] { cacheDir, user, repo, commitId };
-                string path = string.Empty;
-                foreach (var pathSeg in paths) {
-                    path = Path.Combine(path, pathSeg);
-                    if (!Directory.Exists(path)) {
-                        Directory.CreateDirectory(path);
-                    }
-                }
-                return path;
-            }*/
         }
 
         private static Dictionary<string, object> DownloadLocker = new Dictionary<string, object>();
