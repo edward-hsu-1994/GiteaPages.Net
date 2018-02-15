@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <Folder Include="wwwroot\" />
+    <Folder Remove="Files\" />
+    <Content Remove="Files\**\*" />
   </ItemGroup>
 
   <ItemGroup>
