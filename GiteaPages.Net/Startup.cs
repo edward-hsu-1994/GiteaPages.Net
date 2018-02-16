@@ -33,6 +33,8 @@ namespace GiteaPages.Net {
                 app.UseDeveloperExceptionPage();
             }
 
+            app.UseNoCache();
+
             app.UseMvc();
         }
     }
