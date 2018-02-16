@@ -59,7 +59,7 @@ namespace GiteaPages.Net.Controllers {
             [FromRoute] string repo,
             [FromRoute] string path,
             [FromRoute] string @ref) {
-            if (@ref == "last") {
+            if (@ref == "last" || @ref == "master") {
                 @ref = "";
             } else { // 檢查是否為完整的SHA
                 Regex shaFormat = new Regex(@"\A\b[0-9a-fA-F]{40}\b\Z");
@@ -68,7 +68,7 @@ namespace GiteaPages.Net.Controllers {
                 }
             }
 
-            Response.Cookies.Append($"{user}-{repo}", @ref);
+            Response.Cookies.Append($"{user}-{repo}", @ref?.ToLower());
 
             return Redirect($"/{user}/{repo}/{path}");
         }
