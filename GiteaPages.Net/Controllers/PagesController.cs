@@ -92,7 +92,7 @@ namespace GiteaPages.Net.Controllers {
             if (string.IsNullOrWhiteSpace(commit)) {
                 commit = null;
             }
-            commit = commit.Substring(0, 10); // 取得前十碼
+            commit = commit?.Substring(0, 10); // 取得前十碼
 
             // 假設使用者沒有指定commitId，則嘗試呼叫API取得最新的commitId
             if (commit == null) {
