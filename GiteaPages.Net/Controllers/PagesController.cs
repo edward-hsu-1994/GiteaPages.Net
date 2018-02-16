@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using GiteaPages.Net.Models;
@@ -49,20 +50,25 @@ namespace GiteaPages.Net.Controllers {
         /// <param name="user">使用者帳號</param>
         /// <param name="repo">儲存體名稱</param>
         /// <param name="path">檔案路徑</param>
-        /// <param name="commit">取得指定commit</param>
+        /// <param name="ref">取得指定branche/commit/tag</param>
         /// <returns>重定向</returns>
-        [Route("{user}/{repo}-{commit}/{*path}")]
+        [Route("{user}/{repo}-{ref}/{*path}")]
         [Route("{user}/{repo}-last/{*path}")]
         public async Task<ActionResult> ChangeVersion(
             [FromRoute] string user,
             [FromRoute] string repo,
             [FromRoute] string path,
-            [FromRoute] string commit) {
-            if (commit == "last") {
-                commit = "";
+            [FromRoute] string @ref) {
+            if (@ref == "last") {
+                @ref = "";
+            } else { // 檢查是否為完整的SHA
+                Regex shaFormat = new Regex(@"\A\b[0-9a-fA-F]{40}\b\Z");
+                if (shaFormat.IsMatch(@ref)) {
+                    @ref = @ref.Substring(0, 10); // 簡碼
+                }
             }
 
-            Response.Cookies.Append($"{user}-{repo}", commit);
+            Response.Cookies.Append($"{user}-{repo}", @ref);
 
             return Redirect($"/{user}/{repo}/{path}");
         }
@@ -92,7 +98,6 @@ namespace GiteaPages.Net.Controllers {
             if (string.IsNullOrWhiteSpace(commit)) {
                 commit = null;
             }
-            commit = commit?.Substring(0, 10); // 取得前十碼
 
             // 假設使用者沒有指定commitId，則嘗試呼叫API取得最新的commitId
             if (commit == null) {
@@ -128,7 +133,10 @@ namespace GiteaPages.Net.Controllers {
 
             var cacheDir = GetRepoCacheDirPath(configuration["cacheDir"], user, repo, commit);
 
-            await DownloadRepo(cacheDir, user, repo, commit);
+            bool downloadSuccess = await DownloadRepo(cacheDir, user, repo, commit);
+            if (!downloadSuccess) {
+                return await NotFound();
+            }
 
             // zip檔案有一層根目錄
             cacheDir = Directory.GetDirectories(cacheDir).First();
