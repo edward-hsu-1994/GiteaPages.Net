@@ -210,7 +210,7 @@ namespace GiteaPages.Net.Controllers {
                 HttpClient client = new HttpClient();
                 var responseObj = JObject.Parse(await client.GetStringAsync(url));
 
-                return responseObj["commit"].Value<string>("id");
+                return responseObj["commit"].Value<string>("id").Substring(0, 10);
             } catch {
                 return null;
             }
