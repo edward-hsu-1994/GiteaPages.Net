@@ -43,6 +43,14 @@ namespace GiteaPages.Net.Controllers {
             }
         }
 
+        /// <summary>
+        /// 切換瀏覽版本
+        /// </summary>
+        /// <param name="user">使用者帳號</param>
+        /// <param name="repo">儲存體名稱</param>
+        /// <param name="path">檔案路徑</param>
+        /// <param name="commit">取得指定commit</param>
+        /// <returns>重定向</returns>
         [Route("{user}/{repo}-{commit}/{*path}")]
         [Route("{user}/{repo}-last/{*path}")]
         public async Task<ActionResult> ChangeVersion(
@@ -66,7 +74,6 @@ namespace GiteaPages.Net.Controllers {
         /// <param name="user">使用者帳號</param>
         /// <param name="repo">儲存體名稱</param>
         /// <param name="path">檔案路徑</param>
-        /// <param name="commit">取得指定commit</param>
         /// <returns>檔案內容</returns>
         [Route("{user}/{repo}/{*path}")]
         public async Task<ActionResult> Get(
@@ -80,10 +87,12 @@ namespace GiteaPages.Net.Controllers {
                 path = string.Empty;
             }
 
+            // 檢查是否指定版本
             Request.Cookies.TryGetValue($"{user}-{repo}", out string commit);
             if (string.IsNullOrWhiteSpace(commit)) {
                 commit = null;
             }
+            commit = commit.Substring(0, 10); // 取得前十碼
 
             // 假設使用者沒有指定commitId，則嘗試呼叫API取得最新的commitId
             if (commit == null) {
