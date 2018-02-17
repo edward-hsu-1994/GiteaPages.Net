@@ -170,16 +170,14 @@ namespace GiteaPages.Net.Controllers {
                 }
             }
 
-            var notFound = false;
             // 找不到指定檔案，使用儲存庫內的404.html
             if (!System.IO.File.Exists(fullPath)) {
-                notFound = true;
+                Response.StatusCode = 404;
                 fullPath = Path.Combine(cacheDir, config.NotFound);
             }
 
             // 儲存庫內沒有404.html
             if (!System.IO.File.Exists(fullPath)) {
-                notFound = true;
                 return await NotFound();
             }
 
@@ -205,9 +203,6 @@ namespace GiteaPages.Net.Controllers {
                 return await ScriptInjection(path, cacheDir, fileStream, config.ScriptInjection);
             }
 
-            if (notFound) {
-                Response.StatusCode = 404;
-            }
             return File(fileStream, contentType);
         }
 
@@ -275,7 +270,7 @@ namespace GiteaPages.Net.Controllers {
             }
 
             return new ContentResult() {
-                StatusCode = 200,
+                StatusCode = Response.StatusCode,
                 ContentType = extProvider.Mappings[".html"],
                 Content = doc.DocumentNode.OuterHtml
             };
