@@ -11,11 +11,15 @@ namespace GiteaPages.Net.Models {
         /// <summary>
         /// 於Header起始後載入
         /// </summary>
-        Header_Start,
+        Head_Start,
         /// <summary>
         /// 於Header結束前載入
         /// </summary>
-        Header_End,
+        Head_End,
+        /// <summary>
+        /// 於Body起始後載入
+        /// </summary>
+        Body_Start,
         /// <summary>
         /// 於Body結束前載入
         /// </summary>
@@ -23,7 +27,7 @@ namespace GiteaPages.Net.Models {
     }
 
     public class ScriptInjectionConfig {
-        public string Pattern { get; set; } = "*";
+        public string Pattern { get; set; } = ".*";
         public ScriptInjectionPosition Position { get; set; }
         public string Src { get; set; }
     }
