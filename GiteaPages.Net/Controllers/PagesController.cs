@@ -172,6 +172,7 @@ namespace GiteaPages.Net.Controllers {
 
             // 找不到指定檔案，使用儲存庫內的404.html
             if (!System.IO.File.Exists(fullPath)) {
+                Response.StatusCode = 404;
                 fullPath = Path.Combine(cacheDir, config.NotFound);
             }
 
@@ -199,13 +200,13 @@ namespace GiteaPages.Net.Controllers {
             if (contentType == "text/html" &&
                 config.ScriptInjection != null &&
                 config.ScriptInjection.Length > 0) { // Script Injection
-                return await ScriptInjection(path, fileStream, config.ScriptInjection);
+                return await ScriptInjection(path, cacheDir, fileStream, config.ScriptInjection);
             }
 
             return File(fileStream, contentType);
         }
 
-        public async Task<ContentResult> ScriptInjection(string path, Stream stream, ScriptInjectionConfig[] injection) {
+        public async Task<ContentResult> ScriptInjection(string path, string cacheDir, Stream stream, ScriptInjectionConfig[] injection) {
             var extProvider = new FileExtensionContentTypeProvider();
 
             var doc = new HtmlDocument();
@@ -217,7 +218,15 @@ namespace GiteaPages.Net.Controllers {
             foreach (var config in injection.Where(x => x.Position.ToString().Contains("End"))) {
                 if (!Regex.IsMatch(path, config.Pattern)) continue;
 
-                var node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
+                var isUrl = config.Src.ToLower().StartsWith("http:") || config.Src.ToLower().StartsWith("https:");
+                HtmlNode node = null;
+                if (isUrl) {
+                    node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
+                } else {
+                    var script = System.IO.File.ReadAllText(Path.Combine(cacheDir, config.Src));
+                    node = HtmlNode.CreateNode($"<script>{script}</script>");
+                }
+
                 switch (config.Position) {
                     case ScriptInjectionPosition.Head_End:
                         htmlHead.AppendChild(node);
@@ -231,7 +240,15 @@ namespace GiteaPages.Net.Controllers {
             foreach (var config in injection.Where(x => x.Position.ToString().Contains("Start")).Reverse()) {
                 if (!Regex.IsMatch(path, config.Pattern)) continue;
 
-                var node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
+                var isUrl = config.Src.ToLower().StartsWith("http:") || config.Src.ToLower().StartsWith("https:");
+                HtmlNode node = null;
+                if (isUrl) {
+                    node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
+                } else {
+                    var script = System.IO.File.ReadAllText(Path.Combine(cacheDir, config.Src));
+                    node = HtmlNode.CreateNode($"<script>{script}</script>");
+                }
+
                 switch (config.Position) {
                     case ScriptInjectionPosition.Head_Start:
                         HtmlNode firstChild1 = htmlHead.FirstChild;
@@ -253,7 +270,7 @@ namespace GiteaPages.Net.Controllers {
             }
 
             return new ContentResult() {
-                StatusCode = 200,
+                StatusCode = Response.StatusCode,
                 ContentType = extProvider.Mappings[".html"],
                 Content = doc.DocumentNode.OuterHtml
             };
