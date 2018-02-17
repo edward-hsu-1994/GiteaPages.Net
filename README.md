@@ -25,6 +25,13 @@ appsetting.json
 {
     "root": "dist", // 根目錄，預設使用master本身，在Angular專案可設為`dist`目錄
     "notFound": "index.html" // 當發生404錯誤時使用的檔案，在Angular專案下可設為`index.html`達到SPA
+    "scriptInjection": [ // JS腳本注入
+        {
+            "pattern": ".*", // 注入項目路徑匹配(正規表示式)
+		    "position": "Head_Start", // 注入位置(Head_Start、Head_End、Body_Start、Body_End)
+		    "src":"head_start.js" // 腳本路徑，如果路徑為儲存庫內部檔案，則將會把指定的JS直接作為innerHTML，反之則做為src屬性載入
+        }
+    ]
 }
 ```
 
