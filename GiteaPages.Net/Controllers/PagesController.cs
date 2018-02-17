@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using GiteaPages.Net.Models;
+using HtmlAgilityPack;
 using LiteDB;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
@@ -195,7 +196,67 @@ namespace GiteaPages.Net.Controllers {
                 contentType = extProvider.Mappings[fileExtension];
             }
 
+            if (contentType == "text/html" &&
+                config.ScriptInjection != null &&
+                config.ScriptInjection.Length > 0) { // Script Injection
+                return await ScriptInjection(path, fileStream, config.ScriptInjection);
+            }
+
             return File(fileStream, contentType);
+        }
+
+        public async Task<ContentResult> ScriptInjection(string path, Stream stream, ScriptInjectionConfig[] injection) {
+            var extProvider = new FileExtensionContentTypeProvider();
+
+            var doc = new HtmlDocument();
+            doc.Load(stream);
+
+            var htmlHead = doc.DocumentNode.SelectSingleNode("//head");
+            var htmlBody = doc.DocumentNode.SelectSingleNode("//body");
+
+            foreach (var config in injection.Where(x => x.Position.ToString().Contains("End"))) {
+                if (!Regex.IsMatch(path, config.Pattern)) continue;
+
+                var node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
+                switch (config.Position) {
+                    case ScriptInjectionPosition.Head_End:
+                        htmlHead.AppendChild(node);
+                        break;
+                    case ScriptInjectionPosition.Body_End:
+                        htmlBody.AppendChild(node);
+                        break;
+                }
+            }
+
+            foreach (var config in injection.Where(x => x.Position.ToString().Contains("Start")).Reverse()) {
+                if (!Regex.IsMatch(path, config.Pattern)) continue;
+
+                var node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
+                switch (config.Position) {
+                    case ScriptInjectionPosition.Head_Start:
+                        HtmlNode firstChild1 = htmlHead.FirstChild;
+                        if (firstChild1 == null) {
+                            htmlHead.AppendChild(node);
+                        } else {
+                            htmlHead.InsertBefore(node, firstChild1);
+                        }
+                        break;
+                    case ScriptInjectionPosition.Body_Start:
+                        HtmlNode firstChild2 = htmlBody.FirstChild;
+                        if (firstChild2 == null) {
+                            htmlBody.AppendChild(node);
+                        } else {
+                            htmlBody.InsertBefore(node, firstChild2);
+                        }
+                        break;
+                }
+            }
+
+            return new ContentResult() {
+                StatusCode = 200,
+                ContentType = extProvider.Mappings[".html"],
+                Content = doc.DocumentNode.OuterHtml
+            };
         }
 
         [NonAction]
