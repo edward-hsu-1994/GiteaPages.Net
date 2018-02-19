@@ -219,11 +219,12 @@ namespace GiteaPages.Net.Controllers {
                 if (!Regex.IsMatch(path, config.Pattern)) continue;
 
                 var isUrl = config.Src.ToLower().StartsWith("http:") || config.Src.ToLower().StartsWith("https:");
+                var scriptPath = Path.Combine(cacheDir, config.Src);
                 HtmlNode node = null;
-                if (isUrl) {
+                if (isUrl || !System.IO.File.Exists(scriptPath)) {
                     node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
                 } else {
-                    var script = System.IO.File.ReadAllText(Path.Combine(cacheDir, config.Src));
+                    var script = System.IO.File.ReadAllText(scriptPath);
                     node = HtmlNode.CreateNode($"<script>{script}</script>");
                 }
 
@@ -241,11 +242,12 @@ namespace GiteaPages.Net.Controllers {
                 if (!Regex.IsMatch(path, config.Pattern)) continue;
 
                 var isUrl = config.Src.ToLower().StartsWith("http:") || config.Src.ToLower().StartsWith("https:");
+                var scriptPath = Path.Combine(cacheDir, config.Src);
                 HtmlNode node = null;
-                if (isUrl) {
+                if (isUrl || !System.IO.File.Exists(scriptPath)) {
                     node = HtmlNode.CreateNode($"<script src=\"{config.Src}\"></script>");
                 } else {
-                    var script = System.IO.File.ReadAllText(Path.Combine(cacheDir, config.Src));
+                    var script = System.IO.File.ReadAllText(scriptPath);
                     node = HtmlNode.CreateNode($"<script>{script}</script>");
                 }
 
