@@ -102,7 +102,7 @@ namespace GiteaPages.Net.Controllers {
 
             // 假設使用者沒有指定commitId，則嘗試呼叫API取得最新的commitId
             if (commit == null) {
-                commit = await GetLastCommitId(user, repo);
+                commit = await GetLastCommitId(configuration["giteaHost"], user, repo);
 
                 // 寫入資料庫
                 if (commit != null) {
@@ -134,7 +134,7 @@ namespace GiteaPages.Net.Controllers {
 
             var cacheDir = GetRepoCacheDirPath(configuration["cacheDir"], user, repo, commit);
 
-            bool downloadSuccess = await DownloadRepo(cacheDir, user, repo, commit);
+            bool downloadSuccess = await DownloadRepo(configuration["giteaHost"], cacheDir, user, repo, commit);
             if (!downloadSuccess) {
                 return await NotFound();
             }
@@ -291,8 +291,8 @@ namespace GiteaPages.Net.Controllers {
 
 
         [NonAction]
-        public async Task<string> GetLastCommitId(string user, string repo) {
-            string url = $"http://git.gofa.tw/api/v1/repos/{user}/{repo}/branches/master";
+        public async Task<string> GetLastCommitId(string host, string user, string repo, string branch = "master") {
+            string url = $"{host}/api/v1/repos/{user}/{repo}/branches/{branch}";
 
             try {
                 HttpClient client = new HttpClient();
@@ -313,7 +313,7 @@ namespace GiteaPages.Net.Controllers {
         private static Dictionary<string, int> Locking = new Dictionary<string, int>();
 
         [NonAction]
-        public async Task<bool> DownloadRepo(string cacheDir, string user, string repo, string commitId) {
+        public async Task<bool> DownloadRepo(string host, string cacheDir, string user, string repo, string commitId) {
             //已經有快取項目
             if (Directory.Exists(cacheDir)) {
                 return true;
@@ -339,7 +339,7 @@ namespace GiteaPages.Net.Controllers {
             lock (DownloadLocker[commitId]) {
                 // 如果快取項目，其他request在lock期間已經完成下載
                 if (!Directory.Exists(cacheDir)) {
-                    var url = $"http://git.gofa.tw/{user}/{repo}/archive/{commitId}.zip";
+                    var url = $"{host}/{user}/{repo}/archive/{commitId}.zip";
                     HttpClient client = new HttpClient();
 
                     Stream downloadStream = null;
